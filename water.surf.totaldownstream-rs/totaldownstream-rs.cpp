@@ -35,8 +35,8 @@ BEGIN_SIMULATOR_SIGNATURE("totaldownstream-rs-simulator")
 
     
   // Variables
-    DECLARE_REQUIRED_VAR("water.surf.Q.downstream-rs","RS","","m")
-    DECLARE_PRODUCED_VAR("water.surf.V.downstream-totalrs","RS","","m")  // Attention si declare une variable produite il faut ensuite la produire sinon ca bug
+    DECLARE_REQUIRED_VAR("water.surf.Q.downstream-rs","RS","","m3/s")
+    DECLARE_PRODUCED_VAR("water.surf.V.downstream-totalrs","RS","","m3")  // Attention si declare une variable produite il faut ensuite la produire sinon ca bug
   
 // Scheduling
   DECLARE_SCHEDULING_UNDEFINED;
