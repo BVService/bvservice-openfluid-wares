@@ -36,7 +36,7 @@ BEGIN_SIMULATOR_SIGNATURE("totaldownstream-rs-simulator")
     
   // Variables
     DECLARE_REQUIRED_VAR("water.surf.Q.downstream-rs","RS","","m")
-    DECLARE_PRODUCED_VAR("water.surf.Q.downstream-totalrs","RS","","m")  // Attention si declare une variable produite il faut ensuite la produire sinon ca bug
+    DECLARE_PRODUCED_VAR("water.surf.V.downstream-totalrs","RS","","m")  // Attention si declare une variable produite il faut ensuite la produire sinon ca bug
   
 // Scheduling
   DECLARE_SCHEDULING_UNDEFINED;
@@ -124,7 +124,7 @@ class totaldownstreamrssimulator : public openfluid::ware::PluggableSimulator
     	openfluid::core::Unit* RS; // Doit etre declare ici si utilise, ce qui est le cas.
     	OPENFLUID_UNITS_ORDERED_LOOP("RS",RS ) // Quel type d'entité (1), la valeur dans le pointeur défini plus haut (2)
     	    	{
-    	OPENFLUID_InitializeVariable(RS,"water.surf.Q.downstream-totalrs",0.0); // La variable produite doit tjr etre initialisee
+    	OPENFLUID_InitializeVariable(RS,"water.surf.V.downstream-totalrs",0.0); // La variable produite doit tjr etre initialisee
     	ID=RS->getID(); // cree ID
     	m_LastValue[ID]=0.0; // Chaque valeur de m_LastValue correspondant a l'ID de la map est initialise
 
@@ -146,7 +146,7 @@ class totaldownstreamrssimulator : public openfluid::ware::PluggableSimulator
     	// Pointeur sur une RS
     	int ID;
     	openfluid::core::Unit* RS;
-    	openfluid::core::DoubleValue LevelValue;
+    	openfluid::core::DoubleValue MaxValue;
 
 
     	// On fait une boucle sur les RS (for)
@@ -154,14 +154,14 @@ class totaldownstreamrssimulator : public openfluid::ware::PluggableSimulator
     	{
     		// Pour chaque RS on va recuperer la valeur produite par le sim precedent cad water.surf.H.level-rs
     		// Pour recuperer cette variable on utilise la methode getvariable : sur quelle entite (ici le pointeur de RS), la variable a recuperer (water.surf.H.level_rs), dans quoi on met cette valeur (ici dans un double)
-    		// POur le faire on a du definir une openfluid::core::DoubleValue,LevelValue)
-    		OPENFLUID_GetVariable(RS,"water.surf.Q.downstream-rs",LevelValue); // recquired var
+    		// POur le faire on a du definir une openfluid::core::DoubleValue,MaxValue)
+    		OPENFLUID_GetVariable(RS,"water.surf.Q.downstream-rs",MaxValue); // recquired var
     		ID=RS->getID();
 
-    		m_LastValue[ID]=LevelValue*OPENFLUID_GetDefaultDeltaT() + m_LastValue[ID];
+    		m_LastValue[ID]=MaxValue*OPENFLUID_GetDefaultDeltaT() + m_LastValue[ID];
     		//OPENFLUID_Logger.getFile() << OPENFLUID_GetCurrentTimeIndex() << " " << m_LastValue[ID] << "\n";
 
-    		OPENFLUID_AppendVariable(RS,"water.surf.Q.downstream-totalrs",m_LastValue[ID]);
+    		OPENFLUID_AppendVariable(RS,"water.surf.V.downstream-totalrs",m_LastValue[ID]);
 
     	}
 
