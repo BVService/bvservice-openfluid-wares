@@ -1,13 +1,13 @@
 /**
-  \file maxdownstream-su.cpp
-*/
+  \file TotalVolumeSUSim.cpp
+ */
 
 
 /*
 <sim2doc>
 
 </sim2doc>
-*/
+ */
 
 
 #include <openfluid/ware/PluggableSimulator.hpp>
@@ -20,32 +20,28 @@ DECLARE_SIMULATOR_PLUGIN
 // =====================================================================
 
 
-BEGIN_SIMULATOR_SIGNATURE("water.surf.maxdownstream-su")
+BEGIN_SIMULATOR_SIGNATURE("water.surf.totalvolume-su")
 
-  DECLARE_NAME("");
-  DECLARE_DESCRIPTION("");
+DECLARE_NAME("water.surf.totalvolume-su");
+DECLARE_DESCRIPTION("Compute the total volume for SU");
 
-  DECLARE_VERSION("15.01");
-  DECLARE_STATUS(openfluid::ware::EXPERIMENTAL);
+DECLARE_VERSION("15.01");
+DECLARE_STATUS(openfluid::ware::EXPERIMENTAL);
 
-  DECLARE_DOMAIN("");
-  DECLARE_PROCESS("");
-  DECLARE_METHOD("");
-  DECLARE_AUTHOR("","");
+DECLARE_DOMAIN("water");
+DECLARE_PROCESS("");
+DECLARE_METHOD("");
+DECLARE_AUTHOR("Jonathan Vanhouteghem","v.jonath@live.fr");
+DECLARE_AUTHOR("Michael Rabotin","rabotin@supagro.inra.fr");
 
-    
-  
-  
-// Variables
-  DECLARE_REQUIRED_VAR("water.surf.Q.downstream-su","SU","","m3")
-  DECLARE_PRODUCED_VAR("water.surf.V.downstream-maxsu","SU","","m3")
-  
-  
-  
+
+DECLARE_REQUIRED_VAR("water.surf.Q.downstream-su","SU","outflow at the outlet of the SU","m3/s");
+DECLARE_PRODUCED_VAR("water.surf.V.total-su","SU","Total volume at the outlet of the SU","m3");
+
 // Scheduling
-  DECLARE_SCHEDULING_UNDEFINED;
+DECLARE_SCHEDULING_UNDEFINED;
 
-  
+
 
 END_SIMULATOR_SIGNATURE
 
@@ -56,37 +52,38 @@ END_SIMULATOR_SIGNATURE
 
 /**
 
-*/
-class maxdownstreamsu : public openfluid::ware::PluggableSimulator
+ */
+class TotalVolumeSUSimulator : public openfluid::ware::PluggableSimulator
 {
   private:
-	openfluid::core::IDDoubleMap m_MaxValue;
-  
+
+    openfluid::core::IDDoubleMap m_TotalValue;
+
   public:
 
-  
-    maxdownstreamsu(): PluggableSimulator()
+
+    TotalVolumeSUSimulator(): PluggableSimulator()
+  {
+
+
+  }
+
+
+    // =====================================================================
+    // =====================================================================
+
+
+    ~TotalVolumeSUSimulator()
     {
-  
-  
+
+
     }
-  
-  
+
+
     // =====================================================================
     // =====================================================================
-  
-  
-    ~maxdownstreamsu()
-    {
-  
-  
-    }
-  
-  
-    // =====================================================================
-    // =====================================================================
-  
-  
+
+
     void initParams(const openfluid::ware::WareParams_t& /*Params*/)
     {
 
@@ -96,68 +93,71 @@ class maxdownstreamsu : public openfluid::ware::PluggableSimulator
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void prepareData()
     {
-  
-  
+
+
     }
-  
-  
+
+
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void checkConsistency()
     {
-  
-  
+
+
     }
-  
-  
+
+
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     openfluid::base::SchedulingRequest initializeRun()
     {  
-    	int ID;
-    	openfluid::core::Unit* SU;
-    	OPENFLUID_UNITS_ORDERED_LOOP("SU",SU )
-    	    	{
-    	OPENFLUID_InitializeVariable(SU,"water.surf.V.downstream-maxsu",0.0);
-    	ID=SU->getID();
-    	m_MaxValue[ID]=0.0;
 
-    	    	}
-      
+      int ID;
+      openfluid::core::Unit* SU;
+      OPENFLUID_UNITS_ORDERED_LOOP("SU",SU )
+      {
+        OPENFLUID_InitializeVariable(SU,"water.surf.V.total-su",0.0);
+        ID=SU->getID();
+        m_TotalValue[ID]=0.0;
+
+      }
+
       return DefaultDeltaT();
     }
 
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     openfluid::base::SchedulingRequest runStep()
     {
-    	int ID;
-    	openfluid::core::Unit* SU;
-    	openfluid::core::DoubleValue LevelValue;
+
+      int ID;
+      openfluid::core::Unit* SU;
+      openfluid::core::DoubleValue CurrentValue;
 
 
-    	OPENFLUID_UNITS_ORDERED_LOOP("SU",SU)
-    	{
-    		OPENFLUID_GetVariable(SU,"water.surf.Q.downstream-su",LevelValue); // recquired var
-    		ID=SU->getID();
 
-    		if (LevelValue > m_MaxValue[ID])
-    			m_MaxValue[ID]=LevelValue;
+      OPENFLUID_UNITS_ORDERED_LOOP("SU",SU)
+      {
+        OPENFLUID_GetVariable(SU,"water.surf.Q.downstream-su",CurrentValue);
+        ID=SU->getID();
 
-    		OPENFLUID_AppendVariable(SU,"water.surf.V.downstream-maxsu",m_MaxValue[ID]);
+        m_TotalValue[ID]=CurrentValue*OPENFLUID_GetDefaultDeltaT() + m_TotalValue[ID];
 
-    	}
+        if (OPENFLUID_GetSimulationDuration()-OPENFLUID_GetCurrentTimeIndex() < OPENFLUID_GetDefaultDeltaT())
+          OPENFLUID_AppendVariable(SU,"water.surf.V.total-su",m_TotalValue[ID]);
+
+      }
 
       return DefaultDeltaT();
     }
@@ -165,12 +165,12 @@ class maxdownstreamsu : public openfluid::ware::PluggableSimulator
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void finalizeRun()
     {
-  
-  
+
+
     }
 
 };
@@ -180,5 +180,5 @@ class maxdownstreamsu : public openfluid::ware::PluggableSimulator
 // =====================================================================
 
 
-DEFINE_SIMULATOR_CLASS(maxdownstreamsu);
+DEFINE_SIMULATOR_CLASS(TotalVolumeSUSimulator);
 

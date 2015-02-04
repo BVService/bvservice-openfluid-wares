@@ -1,5 +1,5 @@
 /**
-  \file VolOverFlowSim.cpp
+  \file TotalHeightInfiltrationSUSim.cpp
  */
 
 
@@ -20,30 +20,25 @@ DECLARE_SIMULATOR_PLUGIN
 // =====================================================================
 
 
-BEGIN_SIMULATOR_SIGNATURE("water.surf.volume-overflow-rs")
+BEGIN_SIMULATOR_SIGNATURE("water.surf.totalinfiltration-su")
 
-DECLARE_NAME("water.surf.volume-overflow-rs");
-DECLARE_DESCRIPTION("");
+DECLARE_NAME("water.surf.totalinfiltration-su");
+DECLARE_DESCRIPTION("Compute the total height infiltration for SU");
 
-DECLARE_VERSION("15.02");
+DECLARE_VERSION("15.01");
 DECLARE_STATUS(openfluid::ware::EXPERIMENTAL);
 
 DECLARE_DOMAIN("water");
 DECLARE_PROCESS("");
 DECLARE_METHOD("");
+DECLARE_AUTHOR("Jonathan Vanhouteghem","v.jonath@live.fr");
 DECLARE_AUTHOR("Michael Rabotin","rabotin@supagro.inra.fr");
 
 
 
-// Attributes
-DECLARE_REQUIRED_ATTRIBUTE("height","RS","","m")
-DECLARE_REQUIRED_ATTRIBUTE("width","RS","","m")
-DECLARE_REQUIRED_ATTRIBUTE("length","RS","","m")
-
-
 // Variables
-DECLARE_REQUIRED_VAR("water.surf.H.level-rs","RS","","m")
-DECLARE_PRODUCED_VAR("water.surf.V.overflow-rs","RS","","m3")
+DECLARE_REQUIRED_VAR("water.surf.H.infiltration","SU","water infiltration height through the surface of SU","m");
+DECLARE_PRODUCED_VAR("water.surf.H.totalinfiltration-su","SU","total water infiltration height through the surface of SU","m");
 
 
 
@@ -63,15 +58,15 @@ END_SIMULATOR_SIGNATURE
 /**
 
  */
-class VolOverFlowSimulator : public openfluid::ware::PluggableSimulator
+class TotalHInfilSUSimulator : public openfluid::ware::PluggableSimulator
 {
   private:
-    openfluid::core::IDDoubleMap m_VolumeValue;
+    openfluid::core::IDDoubleMap m_TotalValue;
 
   public:
 
 
-    VolOverFlowSimulator(): PluggableSimulator()
+    TotalHInfilSUSimulator(): PluggableSimulator()
   {
 
 
@@ -82,7 +77,7 @@ class VolOverFlowSimulator : public openfluid::ware::PluggableSimulator
     // =====================================================================
 
 
-    ~VolOverFlowSimulator()
+    ~TotalHInfilSUSimulator()
     {
 
 
@@ -128,18 +123,16 @@ class VolOverFlowSimulator : public openfluid::ware::PluggableSimulator
 
     openfluid::base::SchedulingRequest initializeRun()
     {  
-
       int ID;
-      openfluid::core::Unit* RS;
-      OPENFLUID_UNITS_ORDERED_LOOP("RS",RS )
+      openfluid::core::Unit* SU;
+      OPENFLUID_UNITS_ORDERED_LOOP("SU",SU )
       {
-        OPENFLUID_InitializeVariable(RS,"water.surf.V.overflow-rs",0.0);
-        ID=RS->getID();
-        m_VolumeValue[ID]=0.0;
+        OPENFLUID_InitializeVariable(SU,"water.surf.H.totalinfiltration-su",0.0);
+
+        ID=SU->getID();
+        m_TotalValue[ID]=0.0;
 
       }
-
-
 
       return DefaultDeltaT();
     }
@@ -152,33 +145,21 @@ class VolOverFlowSimulator : public openfluid::ware::PluggableSimulator
     openfluid::base::SchedulingRequest runStep()
     {
       int ID;
-      openfluid::core::Unit* RS;
-      openfluid::core::DoubleValue LevelValue;
-      openfluid::core::DoubleValue Height;
-      openfluid::core::DoubleValue Width;
-      openfluid::core::DoubleValue Length;
+      openfluid::core::Unit* SU;
+      openfluid::core::DoubleValue CurrentValue;
 
 
-      OPENFLUID_UNITS_ORDERED_LOOP("RS",RS )
+      OPENFLUID_UNITS_ORDERED_LOOP("SU",SU)
       {
-        OPENFLUID_GetVariable(RS,"water.surf.H.level-rs",LevelValue);
-        OPENFLUID_GetAttribute(RS,"height",Height);
-        OPENFLUID_GetAttribute(RS,"width",Width);
-        OPENFLUID_GetAttribute(RS,"length",Length);
-        ID=RS->getID();
+        OPENFLUID_GetVariable(SU,"water.surf.H.infiltration",CurrentValue);
+        ID=SU->getID();
 
-        if (LevelValue > Height)
-        {
-          openfluid::core::DoubleValue Volume;
-          Volume=(LevelValue-Height) *Length * Width;
-          m_VolumeValue[ID]=m_VolumeValue[ID]+Volume;
-        }
+        m_TotalValue[ID]= CurrentValue+m_TotalValue[ID];
 
         if (OPENFLUID_GetSimulationDuration()-OPENFLUID_GetCurrentTimeIndex() < OPENFLUID_GetDefaultDeltaT())
-          OPENFLUID_AppendVariable(RS,"water.surf.V.overflow-rs",m_VolumeValue[ID]);
+          OPENFLUID_AppendVariable(SU,"water.surf.H.totalinfiltration-su",m_TotalValue[ID]);
 
       }
-
 
       return DefaultDeltaT();
     }
@@ -201,5 +182,5 @@ class VolOverFlowSimulator : public openfluid::ware::PluggableSimulator
 // =====================================================================
 
 
-DEFINE_SIMULATOR_CLASS(VolOverFlowSimulator);
+DEFINE_SIMULATOR_CLASS(TotalHInfilSUSimulator);
 

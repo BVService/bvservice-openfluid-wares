@@ -1,5 +1,5 @@
 /**
-  \file StatUpperRSSim.cpp
+  \file StatUpperSUSim.cpp
  */
 
 
@@ -20,10 +20,10 @@ DECLARE_SIMULATOR_PLUGIN
 // =====================================================================
 
 
-BEGIN_SIMULATOR_SIGNATURE("stat.upper.rs")
+BEGIN_SIMULATOR_SIGNATURE("stat.upper.su")
 
-DECLARE_NAME("stat.upper.rs");
-DECLARE_DESCRIPTION("Compute geometric indicators on RS");
+DECLARE_NAME("stat.upper.su");
+DECLARE_DESCRIPTION("Compute geometric indicators on SU");
 
 DECLARE_VERSION("15.01");
 DECLARE_STATUS(openfluid::ware::EXPERIMENTAL);
@@ -35,14 +35,13 @@ DECLARE_AUTHOR("Jonathan Vanhouteghem","v.jonath@live.fr");
 DECLARE_AUTHOR("Michael Rabotin","rabotin@supagro.inra.fr");
 
 
-
 // Attributes
-DECLARE_REQUIRED_ATTRIBUTE("length","RS","Length of the RS","m")
+DECLARE_REQUIRED_ATTRIBUTE("area","SU","Area of the SU","m2")
 
 
 // Variables
-DECLARE_PRODUCED_VAR("stat.upper.length","RS","Total length of upstream RS","m")
-DECLARE_PRODUCED_VAR("stat.upper.number","RS","Number of upstream RS","")
+DECLARE_PRODUCED_VAR("stat.upper.number","SU","Number of upstream SU","")
+DECLARE_PRODUCED_VAR("stat.upper.surface","SU","Total length of upstream SU","m2")
 
 
 
@@ -61,17 +60,17 @@ END_SIMULATOR_SIGNATURE
 /**
 
  */
-class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
+class StatUpperSUSimulator : public openfluid::ware::PluggableSimulator
 {
   private:
     // Map container to store values
-    openfluid::core::IDDoubleMap m_SumLength;
+    openfluid::core::IDDoubleMap m_SumArea;
     openfluid::core::IDDoubleMap m_NumEntities;
 
   public:
 
 
-    StatUpperRSSimulator(): PluggableSimulator()
+    StatUpperSUSimulator(): PluggableSimulator()
   {
 
 
@@ -82,7 +81,7 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
     // =====================================================================
 
 
-    ~StatUpperRSSimulator()
+    ~StatUpperSUSimulator()
     {
 
 
@@ -128,22 +127,24 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
 
     openfluid::base::SchedulingRequest initializeRun()
     {  
-      // Initialize variables for each RS
-      openfluid::core::Unit* RS;
-      OPENFLUID_UNITS_ORDERED_LOOP("RS",RS )
+      // Initialize variables for each SU
+      openfluid::core::Unit* SU;
+      OPENFLUID_UNITS_ORDERED_LOOP("SU",SU )
       {
-        OPENFLUID_InitializeVariable(RS,"stat.upper.length",0.0);
-        OPENFLUID_InitializeVariable(RS,"stat.upper.number",0.0);
+        OPENFLUID_InitializeVariable(SU,"stat.upper.surface",0.0);
+        OPENFLUID_InitializeVariable(SU,"stat.upper.number",0.0);
 
       }
 
       // Variables are computed here
-      OPENFLUID_UNITS_ORDERED_LOOP("RS",RS)
+      OPENFLUID_UNITS_ORDERED_LOOP("SU",SU)
       {
 
-        if (RS->getToUnits("RS") == NULL) // Call the recursive method only for RS leafs
-          computeRecursive("RS","length",RS,m_SumLength,m_NumEntities);
+        if (SU->getToUnits("SU") == NULL) // Call the recursive method only for SU leafs
+          computeRecursive("SU","area",SU,m_SumArea,m_NumEntities);
       }
+
+
 
       return DefaultDeltaT();
     }
@@ -158,16 +159,15 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
       // test if it is the last step
       if (OPENFLUID_GetSimulationDuration()-OPENFLUID_GetCurrentTimeIndex() < OPENFLUID_GetDefaultDeltaT())
       {
-        openfluid::core::Unit* RS;
+        openfluid::core::Unit* SU;
         int ID;
-        OPENFLUID_UNITS_ORDERED_LOOP("RS",RS)
+        OPENFLUID_UNITS_ORDERED_LOOP("SU",SU)
         {
-          ID=RS->getID();
-          OPENFLUID_AppendVariable(RS,"stat.upper.length",m_SumLength[ID]);
-          OPENFLUID_AppendVariable(RS,"stat.upper.number",m_NumEntities[ID]);
+          ID=SU->getID();
+          OPENFLUID_AppendVariable(SU,"stat.upper.surface",m_SumArea[ID]);
+          OPENFLUID_AppendVariable(SU,"stat.upper.number",m_NumEntities[ID]);
         }
       }
-
       return DefaultDeltaT();
     }
 
@@ -182,7 +182,6 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
 
     }
 
-
     // =====================================================================
     // =====================================================================
 
@@ -190,7 +189,7 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
     void computeRecursive(const openfluid::core::UnitClass_t& UnitsClass,
                           const openfluid::core::AttributeName_t& AttrName,
                           openfluid::core::Unit* U,
-                          openfluid::core::IDDoubleMap& MapLength,
+                          openfluid::core::IDDoubleMap& MapArea,
                           openfluid::core::IDDoubleMap& MapEntities)
     {
       // postfixed depth-first search to process leafs first and go back to root
@@ -204,8 +203,9 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
       {
         OPENFLUID_UNITSLIST_LOOP(UpperUnits,UU) // loop for each upstream unit
         {
-          if (!(MapLength.find(UU->getID()) != MapLength.end()))
-            computeRecursive(UnitsClass,AttrName,UU,MapLength,MapEntities); // recursive method for upstream unit
+          if (!(MapArea.find(UU->getID()) != MapArea.end()))
+            computeRecursive(UnitsClass,AttrName,UU,MapArea,MapEntities); // recursive method for upstream unit
+
         }
       }
 
@@ -220,7 +220,7 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
       {
         OPENFLUID_UNITSLIST_LOOP(UpperUnits,UU)
         {
-          UpperSum = UpperSum + MapLength[UU->getID()];
+          UpperSum = UpperSum + MapArea[UU->getID()];
           UpperNum= UpperNum+ MapEntities[UU->getID()];
         }
       }
@@ -228,11 +228,12 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
       // add current unit attribute
       OPENFLUID_GetAttribute(U,AttrName,Val);
       UpperSum = UpperSum + Val;
-      MapLength[U->getID()] = UpperSum;
+      MapArea[U->getID()] = UpperSum;
       UpperNum = UpperNum + 1;
       MapEntities[U->getID()] = UpperNum;
 
     }
+
 
 };
 
@@ -241,5 +242,5 @@ class StatUpperRSSimulator : public openfluid::ware::PluggableSimulator
 // =====================================================================
 
 
-DEFINE_SIMULATOR_CLASS(StatUpperRSSimulator);
+DEFINE_SIMULATOR_CLASS(StatUpperSUSimulator);
 

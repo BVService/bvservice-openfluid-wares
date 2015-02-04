@@ -1,13 +1,13 @@
 /**
-  \file totalinfiltration-su.cpp
-*/
+  \file MaxHeightOverRSSim.cpp
+ */
 
 
 /*
 <sim2doc>
 
 </sim2doc>
-*/
+ */
 
 
 #include <openfluid/ware/PluggableSimulator.hpp>
@@ -20,33 +20,31 @@ DECLARE_SIMULATOR_PLUGIN
 // =====================================================================
 
 
-BEGIN_SIMULATOR_SIGNATURE("water.surf.totalinfiltration-su")
+BEGIN_SIMULATOR_SIGNATURE("water.surf.overflow-rs")
 
-  DECLARE_NAME("");
-  DECLARE_DESCRIPTION("");
+DECLARE_NAME("water.surf.overflow-rs");
+DECLARE_DESCRIPTION("Compute the maximum height overflow for RS");
 
-  DECLARE_VERSION("15.01");
-  DECLARE_STATUS(openfluid::ware::EXPERIMENTAL);
+DECLARE_VERSION("15.01");
+DECLARE_STATUS(openfluid::ware::EXPERIMENTAL);
 
-  DECLARE_DOMAIN("");
-  DECLARE_PROCESS("");
-  DECLARE_METHOD("");
-  DECLARE_AUTHOR("JV","");
+DECLARE_DOMAIN("water");
+DECLARE_PROCESS("");
+DECLARE_METHOD("");
+DECLARE_AUTHOR("Jonathan Vanhouteghem","v.jonath@live.fr");
+DECLARE_AUTHOR("Michael Rabotin","rabotin@supagro.inra.fr");
 
-    
-  
-  
-// Variables
-  DECLARE_REQUIRED_VAR("water.surf.H.infiltration","SU","","m")
-  DECLARE_PRODUCED_VAR("water.surf.H.totalinfiltrationsu","SU","","m")
+DECLARE_REQUIRED_ATTRIBUTE("height","RS","height of the RS","m")
 
-  
-  
-  
+
+DECLARE_REQUIRED_VAR("water.surf.H.level-rs","RS","water height at the outlet of the RS","m")
+DECLARE_PRODUCED_VAR("water.surf.H.overflow-rs","RS","maximum water height overflow at the outlet of the RS","m")
+
+
 // Scheduling
-  DECLARE_SCHEDULING_UNDEFINED;
+DECLARE_SCHEDULING_UNDEFINED;
 
-  
+
 
 END_SIMULATOR_SIGNATURE
 
@@ -57,37 +55,38 @@ END_SIMULATOR_SIGNATURE
 
 /**
 
-*/
-class totalinfiltrationsu : public openfluid::ware::PluggableSimulator
+ */
+class MaxHeightOverRSSimulator : public openfluid::ware::PluggableSimulator
 {
   private:
-	openfluid::core::IDDoubleMap m_LastValue;
-  
+
+    openfluid::core::IDDoubleMap m_MaxValue;
+
   public:
 
-  
-    totalinfiltrationsu(): PluggableSimulator()
+
+    MaxHeightOverRSSimulator(): PluggableSimulator()
+  {
+
+
+  }
+
+
+    // =====================================================================
+    // =====================================================================
+
+
+    ~MaxHeightOverRSSimulator()
     {
-  
-  
+
+
     }
-  
-  
+
+
     // =====================================================================
     // =====================================================================
-  
-  
-    ~totalinfiltrationsu()
-    {
-  
-  
-    }
-  
-  
-    // =====================================================================
-    // =====================================================================
-  
-  
+
+
     void initParams(const openfluid::ware::WareParams_t& /*Params*/)
     {
 
@@ -97,68 +96,81 @@ class totalinfiltrationsu : public openfluid::ware::PluggableSimulator
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void prepareData()
     {
-  
-  
+
+
     }
-  
-  
+
+
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void checkConsistency()
     {
-  
-  
+
+
     }
-  
-  
+
+
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     openfluid::base::SchedulingRequest initializeRun()
     {  
-    	int ID;
-    	openfluid::core::Unit* SU;
-    	OPENFLUID_UNITS_ORDERED_LOOP("SU",SU )
-    	    	{
-    	OPENFLUID_InitializeVariable(SU,"water.surf.H.totalinfiltrationsu",0.0);
+      int ID;
+      openfluid::core::Unit* RS;
+      OPENFLUID_UNITS_ORDERED_LOOP("RS",RS )
+      {
+        OPENFLUID_InitializeVariable(RS,"water.surf.H.overflow-rs",0.0);
+        ID=RS->getID();
+        m_MaxValue[ID]=0.0;
 
-    	ID=SU->getID();
-    	m_LastValue[ID]=0.0;
+      }
 
-    	    	}
-      
       return DefaultDeltaT();
     }
 
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     openfluid::base::SchedulingRequest runStep()
     {
-    	int ID;
-    	openfluid::core::Unit* SU;
-    	openfluid::core::DoubleValue CurrentValue;
+
+      int ID;
+      openfluid::core::Unit* RS;
+      openfluid::core::DoubleValue LevelValue;
+      openfluid::core::DoubleValue Height;
 
 
-    	OPENFLUID_UNITS_ORDERED_LOOP("SU",SU)
-    	{
-    		OPENFLUID_GetVariable(SU,"water.surf.H.infiltration",CurrentValue);
-    		ID=SU->getID();
+      OPENFLUID_UNITS_ORDERED_LOOP("RS",RS )
+      {
+        OPENFLUID_GetVariable(RS,"water.surf.H.level-rs",LevelValue);
+        ID=RS->getID();
 
-    		CurrentValue = CurrentValue + m_LastValue[ID];
-    		m_LastValue[ID]= CurrentValue;
-    		OPENFLUID_AppendVariable(SU,"water.surf.H.totalinfiltrationsu",CurrentValue);
+        if (LevelValue > m_MaxValue[ID])
+          m_MaxValue[ID]=LevelValue;
 
-    	}
+
+        if (OPENFLUID_GetSimulationDuration()-OPENFLUID_GetCurrentTimeIndex() < OPENFLUID_GetDefaultDeltaT())
+        {
+
+          OPENFLUID_GetAttribute(RS,"height",Height);
+
+          openfluid::core::DoubleValue DiffValue = 0.0;
+          if (m_MaxValue[ID]>Height)
+            DiffValue=m_MaxValue[ID]-Height;
+
+          OPENFLUID_AppendVariable(RS,"water.surf.H.overflow-rs",DiffValue);
+        }
+      }
+
 
       return DefaultDeltaT();
     }
@@ -166,12 +178,12 @@ class totalinfiltrationsu : public openfluid::ware::PluggableSimulator
 
     // =====================================================================
     // =====================================================================
-  
-  
+
+
     void finalizeRun()
     {
-  
-  
+
+
     }
 
 };
@@ -181,5 +193,5 @@ class totalinfiltrationsu : public openfluid::ware::PluggableSimulator
 // =====================================================================
 
 
-DEFINE_SIMULATOR_CLASS(totalinfiltrationsu);
+DEFINE_SIMULATOR_CLASS(MaxHeightOverRSSimulator);
 
